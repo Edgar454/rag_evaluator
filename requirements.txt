@@ -1,0 +1,8 @@
+tqdm
+ranx
+sklearn
+google-generativeai
+sentence_transformers
+transformers
+pandas
+numpy
