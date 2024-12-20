@@ -1,0 +1,2 @@
+include rag_evaluator/data/*.csv
+include rag_evaluator/data/*.pkl
