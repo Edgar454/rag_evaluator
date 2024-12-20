@@ -1,3 +1,5 @@
+import importlib.resources as pkg_resources
+
 import json
 import pickle
 import pandas as pd
@@ -19,8 +21,12 @@ class RAGEvaluator:
 
         self.query_engine = query_engine
         if eval_mode == "default":
-          self.questions = pickle.load(open(".data/all_questions.pkl" , "rb"))
-          self.retrieval_ground_truth = pd.read_csv('.data/ground_truth_dataset.csv')
+          with pkg_resources.open_binary('rag_evaluator.data', 'all_questions.pkl') as f:
+            self.questions = pickle.load(f)
+
+          # Load the CSV file
+          with pkg_resources.open_text('rag_evaluator.data', 'ground_truth_dataset.csv') as f:
+                self.retrieval_ground_truth = pd.read_csv(f)
 
         elif eval_mode == "custom":
           if questions is None or ground_truth_df is None :
