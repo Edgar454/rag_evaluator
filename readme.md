@@ -28,13 +28,13 @@ The **RAG Evaluation Module** provides a comprehensive framework for evaluating 
 1. Install the package using pip:
 
 ```bash
-pip install git+https://github.com/edgar454/rag-evaluator.git
+pip install git+https://github.com/edgar454/rag_evaluator.git
 ```
 
 Alternatively, clone the repository and install locally:
 
 ```bash
-git clone https://github.com/edgar454/rag-evaluator.git
+git clone https://github.com/edgar454/rag_evaluator.git
 cd rag-evaluator
 pip install .
 ```
