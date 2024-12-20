@@ -19,15 +19,15 @@ class RAGEvaluator:
 
         self.query_engine = query_engine
         if eval_mode == "default":
-          self.questions = pickle.load(open("data/all_questions.pkl" , "rb"))
-          self.retrieval_ground_truth = pd.read_csv('data/ground_truth_dataset.csv')
+          self.questions = pickle.load(open(".data/all_questions.pkl" , "rb"))
+          self.retrieval_ground_truth = pd.read_csv('.data/ground_truth_dataset.csv')
 
         elif eval_mode == "custom":
           if questions is None or ground_truth_df is None :
             raise ValueError("If eval_mode is 'custom', both questions and ground_truth_df must be provided.")
           self.questions = questions
           self.retrieval_ground_truth = ground_truth_df
-          
+
         if speed != 'normal':
             self.questions = self.questions[:10]
             self.retrieval_ground_truth = self.retrieval_ground_truth.head(10)
