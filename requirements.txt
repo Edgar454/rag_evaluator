@@ -1,6 +1,6 @@
 tqdm
 ranx
-sklearn
+scikit-learn
 google-generativeai
 sentence_transformers
 transformers
