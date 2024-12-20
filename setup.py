@@ -11,7 +11,7 @@ setup(
     install_requires=open("requirements.txt").readlines(),  
     include_package_data=True,
     package_data={
-        "rag_evaluator": ["data/*.csv", "data/*.pkl"],  
+        "rag_evaluator": ["rag_evaluator/data/*.csv", "rag_evaluator/data/*.pkl"],  
     },
     python_requires=">=3.8",       
 )
