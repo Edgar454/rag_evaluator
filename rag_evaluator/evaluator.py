@@ -1,42 +1,53 @@
 import json
-import pickle 
-import pandas as pd  
+import pickle
+import pandas as pd
 import google.generativeai as genai
 import re
 from typing import List
 from concurrent.futures import ThreadPoolExecutor
-import ranx
+
 from sklearn.metrics.pairwise import cosine_similarity
+from sklearn.metrics import average_precision_score
 import numpy as np
 from sentence_transformers import SentenceTransformer
 from tqdm import tqdm
 
 
-class RAGEvaluation:
-    
-    def __init__(self, query_engine, google_api_key, eval_mode = "default" , questions = None , ground_truth_df = None):
-      
-        self.query_engine = query_engine
+class RAGEvaluator:
 
+    def __init__(self, query_engine, google_api_key, eval_mode = "default", speed = 'normal', questions = None , ground_truth_df = None):
+
+        self.query_engine = query_engine
         if eval_mode == "default":
           self.questions = pickle.load(open("data/all_questions.pkl" , "rb"))
-          self.retrieval_ground_truth = pd.read_csv('data/ground_truth_dataset.csv') 
+          self.retrieval_ground_truth = pd.read_csv('data/ground_truth_dataset.csv')
+
         elif eval_mode == "custom":
           if questions is None or ground_truth_df is None :
             raise ValueError("If eval_mode is 'custom', both questions and ground_truth_df must be provided.")
           self.questions = questions
           self.retrieval_ground_truth = ground_truth_df
-      
-        self.responses = [self.answer_question(question) for question in self.questions]
+          
+        if speed != 'normal':
+            self.questions = self.questions[:10]
+            self.retrieval_ground_truth = self.retrieval_ground_truth.head(10)
+
+        print('Initializing the evaluator')
+        self.responses = [self.answer_question(question) for question in tqdm(self.questions)]
         self.answers = [response.response for response in self.responses]
         self.contexts = [[node.node.get_text() for node in response.source_nodes] for response in self.responses]
         self.embedding_model = 'BAAI/bge-small-en-v1.5'
 
         genai.configure(api_key=google_api_key)
         self.evaluation_model = genai.GenerativeModel("gemini-2.0-flash-exp")
+        print('Initialization complete')
 
     def answer_question(self, question: str):
         result = self.query_engine.query(question)
+        return result
+    
+    def generate_evaluation(self , prompt:str) -> str:
+        result = self.evaluation_model.generate_content(prompt)
         return result
 
     def check_correctness(self, questions: List, answers: List) -> float:
@@ -55,7 +66,7 @@ class RAGEvaluation:
 
         def evaluate_single(q, a):
             try:
-                result = self.evaluation_model.generate_content(correctness_prompt.format(question=q, answer=a))
+                result = self.generate_evaluation(correctness_prompt.format(question=q, answer=a))
                 result_text = re.sub("```json|```", "", result.text)
                 result_dict = json.loads(result_text)
                 return result_dict['score']
@@ -81,14 +92,14 @@ class RAGEvaluation:
         Answer: {answer}
         Retrieved Insight: {retrieved_insight}
 
-        Please return your evaluation as a Python dictionary with two keys:
+        Please return your evaluation as a dictionary with two keys:
         - **'score'**: The numerical score out of 10, reflecting how well the answer uses the retrieved information.
         - **'explanation'**: A detailed explanation of the score, describing the reasoning behind the evaluation and how well the answer adhered to the retrieved data."""
 
         def evaluate_single(c, a):
             try:
                 retrieved_insight = " ".join(c)  # Concatenate all context chunks
-                result = self.evaluation_model.generate_content(
+                result = self.generate_evaluation(
                     faithfulness_prompt.format(answer=a, retrieved_insight=retrieved_insight)
                 )
                 result_text = re.sub("```json|```", "", result.text)
@@ -105,7 +116,7 @@ class RAGEvaluation:
         return np.mean(scores)
 
     def check_hallucinations(self, questions: List, answers: List) -> float:
-        hallucination_prompt = """You are given the following question. Your task is to rewrite this question in three different ways while preserving the original intent. 
+        hallucination_prompt = """You are given the following question. Your task is to rewrite this question in three different ways while preserving the original intent.
         The rephrased questions should maintain the meaning and scope of the original question, ensuring they can still be answered with the same information.
 
         Question: {question}
@@ -124,7 +135,7 @@ class RAGEvaluation:
 
         for question, original_answer in tqdm(zip(questions, answers), total=len(questions)):
             try:
-                rewrited_questions = self.evaluation_model.generate_content(
+                rewrited_questions = self.generate_evaluation(
                     hallucination_prompt.format(question=question)
                 )
                 rewrited_questions = [q.strip() for q in rewrited_questions.text.split('\n') if q.strip()]
@@ -138,13 +149,42 @@ class RAGEvaluation:
                 answer_embeddings = embedding_model.encode([original_answer] + answers)
                 for i in range(1, len(answer_embeddings)):
                     sim = cosine_similarity([answer_embeddings[0]], [answer_embeddings[i]])[0][0]
-                    score = 1 + 9 * (sim - 0.6) / 0.4 if sim >= 0.6 else 1
+                    score = np.interp(sim, (0.6, 1), (1, 10)) if sim >= 0.6 else 1  
                     similarity_scores.append(score)
             except Exception as e:
                 print(f"Error evaluating hallucinations: {e}")
                 continue
 
         return np.mean(similarity_scores)
+
+    def evaluate_retrieval(self, questions: List, contexts:List, ground_truth_df: pd.DataFrame, k: int = 5) -> float:
+        all_scores = []
+
+        for question , context in tqdm(zip(questions , contexts), total=len(questions)):
+
+          try:
+            # Retrieve chunks for the question
+            retrieved_chunks = context
+
+            # Get ground truth (relevant chunks)
+            ground_truth = ground_truth_df.loc[ground_truth_df['question'] == question, 'ranked_chunks'].iloc[0]
+
+            # Create a binary relevance list (1 for relevant, 0 for non-relevant)
+            relevance = [1 if doc in ground_truth else 0 for doc in retrieved_chunks[:k]]
+
+            # Calculate Average Precision for the current question
+            avg_precision = average_precision_score([1] * len(ground_truth), relevance)
+
+            # Scale the score from 0-1 to 0-10
+            scaled_score = np.interp(avg_precision, (0, 1), (0, 10))
+            all_scores.append(scaled_score)
+
+          except Exception as e:
+            print(f"Exception: {e}")
+            continue
+
+        return np.mean(all_scores)
+
 
     def evaluate_rag(self):
         correctness_score = self.check_correctness(self.questions, self.answers)

@@ -49,7 +49,7 @@ pip install .
 ### Initializing the Module
 
 ```python
-from rag_evaluation import RAGEvaluation
+from rag_evaluator import RAGEvaluator
 
 # Initialize the query engine (using LlamaIndex)
 from llama_index import GPTVectorStoreIndex
@@ -59,7 +59,7 @@ index = GPTVectorStoreIndex.from_documents(data)
 query_engine = index.as_query_engine()
 
 # Initialize the evaluation module
-rageval = RAGEvaluation(query_engine=query_engine, google_api_key='<your_google_api_key>')
+rageval = RAGEvaluator(query_engine=query_engine, google_api_key='<your_google_api_key>')
 ```
 
 ### Running the Evaluation
