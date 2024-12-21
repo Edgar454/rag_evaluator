@@ -43,7 +43,7 @@ class RAGEvaluator:
         print('Initializing the evaluator')
         self.responses = [self.answer_question(question , mode) for question in tqdm(self.questions)]
         self.answers = [response.response for response in self.responses if response]
-        self.contexts = [[node.node.get_text() for node in response.source_nodes] for response in self.responses]
+        self.contexts = [[node.node.get_text() for node in response.source_nodes] for response in self.responses if response]
         self.embedding_model = 'BAAI/bge-small-en-v1.5'
 
         genai.configure(api_key=google_api_key)
