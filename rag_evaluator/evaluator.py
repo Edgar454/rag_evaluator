@@ -53,7 +53,7 @@ class RAGEvaluator:
             result = self.query_engine.query(question)
             return result
         except Exception as e:
-            print(f"Error evaluating correctness: {e}")
+            print(f"Error answering question: {e}")
             return None
     
     def generate_evaluation(self , prompt:str) -> str:
@@ -61,7 +61,7 @@ class RAGEvaluator:
             result = self.evaluation_model.generate_content(prompt)
             return result
         except Exception as e:
-            print(f"Error evaluating correctness: {e}")
+            print(f"Error generating completion : {e}")
             return None
 
     def check_correctness(self, questions: List, answers: List) -> float:
