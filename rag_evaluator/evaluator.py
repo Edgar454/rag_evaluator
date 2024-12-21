@@ -21,6 +21,7 @@ class RAGEvaluator:
                  mode = 'rag', questions = None , ground_truth_df = None):
 
         self.query_engine = query_engine
+
         if eval_mode == "default":
           with pkg_resources.open_binary('rag_evaluator.data', 'all_questions.pkl') as f:
             self.questions = pickle.load(f)
@@ -41,7 +42,7 @@ class RAGEvaluator:
 
         print('Initializing the evaluator')
         self.responses = [self.answer_question(question , mode) for question in tqdm(self.questions)]
-        self.answers = [response.response for response in self.responses]
+        self.answers = [response.response for response in self.responses if response]
         self.contexts = [[node.node.get_text() for node in response.source_nodes] for response in self.responses]
         self.embedding_model = 'BAAI/bge-small-en-v1.5'
 
