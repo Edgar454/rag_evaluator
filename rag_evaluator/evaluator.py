@@ -3,6 +3,7 @@ import importlib.resources as pkg_resources
 import json
 import pickle
 import pandas as pd
+import openai
 import google.generativeai as genai
 import re
 from typing import List
@@ -17,10 +18,11 @@ from tqdm import tqdm
 
 class RAGEvaluator:
 
-    def __init__(self, query_engine, google_api_key, eval_mode = "default", speed = 'normal', 
+    def __init__(self, query_engine, api_key, eval_mode = "default", speed = 'normal', 
                  mode = 'rag', questions = None , ground_truth_df = None):
 
         self.query_engine = query_engine
+        self.api_key = api_key
 
         if eval_mode == "default":
           with pkg_resources.open_binary('rag_evaluator.data', 'all_questions.pkl') as f:
@@ -45,10 +47,17 @@ class RAGEvaluator:
         self.answers = [response.response for response in self.responses if response]
         self.contexts = [[node.node.get_text() for node in response.source_nodes] for response in self.responses if response]
         self.embedding_model = 'BAAI/bge-small-en-v1.5'
-
-        genai.configure(api_key=google_api_key)
-        self.evaluation_model = genai.GenerativeModel("gemini-2.0-flash-exp")
+        self.initialize_evaluation_model()
+        self.initialize_embedding_model()
         print('Initialization complete')
+
+    def initialize_evaluation_model(self):
+        self.evaluation_model = openai.OpenAI(
+                    api_key= self.api_key,
+                    base_url="https://glhf.chat/api/openai/v1",)
+        
+    def initialize_embedding_model(self):
+        self.embedding_model = SentenceTransformer(self.embedding_model)
 
     def answer_question(self, question: str, mode = 'rag'):
         try:
@@ -65,8 +74,12 @@ class RAGEvaluator:
     
     def generate_evaluation(self , prompt:str) -> str:
         try :
-            result = self.evaluation_model.generate_content(prompt)
-            return result
+            completion = self.evaluation_model.chat.completions.create(
+                                            model="hf:meta-llama/Llama-3.1-405B-Instruct",
+                                            messages=[{"role": "user", "content": prompt}]
+                                            )
+
+            return completion.choices[0].message.content
         except Exception as e:
             print(f"Error generating completion : {e}")
             return None
@@ -150,9 +163,9 @@ class RAGEvaluator:
         Format the output with numbered versions:
         1. Version 1
         2. Version 2
-        3. Version 3"""
+        3. Version 3
+        Without any other text"""
 
-        embedding_model = SentenceTransformer(self.embedding_model)
         similarity_scores = []
 
         for question, original_answer in tqdm(zip(questions, answers), total=len(questions)):
@@ -168,7 +181,7 @@ class RAGEvaluator:
                 answers = [self.answer_question(q) for q in rewrited_questions if q]
                 answers = [answer.response for answer in answers]
 
-                answer_embeddings = embedding_model.encode([original_answer] + answers)
+                answer_embeddings = self.embedding_model.encode([original_answer] + answers)
                 for i in range(1, len(answer_embeddings)):
                     sim = cosine_similarity([answer_embeddings[0]], [answer_embeddings[i]])[0][0]
                     score = np.interp(sim, (0.6, 1), (1, 10)) if sim >= 0.6 else 1  
@@ -189,7 +202,8 @@ class RAGEvaluator:
             retrieved_chunks = context
 
             # Get ground truth (relevant chunks)
-            ground_truth = ground_truth_df.loc[ground_truth_df['question'] == question, 'ranked_chunks'].iloc[0]
+            ground_truth = ground_truth_df.loc[ground_truth_df['question'] == question, 'ranked_chunks']
+            print(len(ground_truth))
 
             # Create a binary relevance list (1 for relevant, 0 for non-relevant)
             relevance = [1 if doc in ground_truth else 0 for doc in retrieved_chunks[:k]]
@@ -209,10 +223,17 @@ class RAGEvaluator:
 
 
     def evaluate_rag(self):
+        print('Beginning the evaluation')
+        print('Evaluating Correctness')
         correctness_score = self.check_correctness(self.questions, self.answers)
+        print('Evaluating Faithfulness')
         faithfulness_score = self.check_faithfulness(self.contexts, self.answers)
+        print('Evaluating Retrieval')
         retrieval_score = self.evaluate_retrieval(self.questions, self.contexts, self.retrieval_ground_truth)
+        print('Evaluating Hallucination')
         hallucination_score = self.check_hallucinations(self.questions, self.answers)
+        print('Evaluation complete')
+
         return {
             "correctness_score": correctness_score,
             "faithfulness_score": faithfulness_score,

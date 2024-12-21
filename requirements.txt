@@ -6,3 +6,4 @@ sentence_transformers
 transformers
 pandas
 numpy
+openai
