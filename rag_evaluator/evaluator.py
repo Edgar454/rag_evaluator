@@ -55,6 +55,7 @@ class RAGEvaluator:
             if mode == 'rag' :
                 result = self.query_engine.query(question)
             elif mode == 'agentic':
+                self.query_engine.reset()
                 result = self.query_engine.chat(question)
             return result
         
