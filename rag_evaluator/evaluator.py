@@ -204,8 +204,8 @@ class RAGEvaluator:
 
             # Get ground truth (relevant chunks)
             ground_truth = ground_truth_df.loc[ground_truth_df['question'] == question, 'ranked_chunks']
-            print(len(ground_truth))
-            print(ground_truth.head())
+            print(len(ground_truth.iloc[0]))
+            print(ground_truth.iloc[0])
 
             # Create a binary relevance list (1 for relevant, 0 for non-relevant)
             relevance = [1 if doc in ground_truth else 0 for doc in retrieved_chunks[:k]]
