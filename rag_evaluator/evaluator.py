@@ -101,7 +101,7 @@ class RAGEvaluator:
         def evaluate_single(q, a):
             try:
                 result = self.generate_evaluation(correctness_prompt.format(question=q, answer=a))
-                result_text = re.sub("```json|```", "", result.text)
+                result_text = re.sub("```json|```", "", result)
                 result_dict = json.loads(result_text)
                 return result_dict['score']
             except Exception as e:
@@ -137,7 +137,7 @@ class RAGEvaluator:
                 result = self.generate_evaluation(
                     faithfulness_prompt.format(answer=a, retrieved_insight=retrieved_insight)
                 )
-                result_text = re.sub("```json|```", "", result.text)
+                result_text = re.sub("```json|```", "", result)
                 result_dict = json.loads(result_text)
                 return result_dict['score']
             except Exception as e:
@@ -173,7 +173,7 @@ class RAGEvaluator:
                 rewrited_questions = self.generate_evaluation(
                     hallucination_prompt.format(question=question)
                 )
-                rewrited_questions = [q.strip() for q in rewrited_questions.text.split('\n') if q.strip()]
+                rewrited_questions = [q.strip() for q in rewrited_questions.split('\n') if q.strip()]
                 rewrited_questions = [
                     q[q.find(".") + 1 :].strip() if q[0].isdigit() else q for q in rewrited_questions
                 ]  # Strip numbering
@@ -204,6 +204,7 @@ class RAGEvaluator:
             # Get ground truth (relevant chunks)
             ground_truth = ground_truth_df.loc[ground_truth_df['question'] == question, 'ranked_chunks']
             print(len(ground_truth))
+            print(ground_truth.head())
 
             # Create a binary relevance list (1 for relevant, 0 for non-relevant)
             relevance = [1 if doc in ground_truth else 0 for doc in retrieved_chunks[:k]]
