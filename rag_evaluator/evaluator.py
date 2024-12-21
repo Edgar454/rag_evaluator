@@ -49,12 +49,20 @@ class RAGEvaluator:
         print('Initialization complete')
 
     def answer_question(self, question: str):
-        result = self.query_engine.query(question)
-        return result
+        try:
+            result = self.query_engine.query(question)
+            return result
+        except Exception as e:
+            print(f"Error evaluating correctness: {e}")
+            return None
     
     def generate_evaluation(self , prompt:str) -> str:
-        result = self.evaluation_model.generate_content(prompt)
-        return result
+        try :
+            result = self.evaluation_model.generate_content(prompt)
+            return result
+        except Exception as e:
+            print(f"Error evaluating correctness: {e}")
+            return None
 
     def check_correctness(self, questions: List, answers: List) -> float:
         correctness_prompt = """Evaluate the following answer in response to the question. Provide a score from 0 to 10 based on the following criteria:
@@ -65,7 +73,7 @@ class RAGEvaluator:
 
         Please return your evaluation as a dictionary with two keys:
         - **'score'**: The numerical score out of 10.
-        - **'explanation'**: A detailed explanation of the score, describing the reasoning behind the evaluation.
+        - **'explanation'**: A detailed explanation of the score, describing the reasoning behind the evaluation. Without any other text.
 
         Question: {question}
         Answer: {answer}"""
@@ -100,7 +108,8 @@ class RAGEvaluator:
 
         Please return your evaluation as a dictionary with two keys:
         - **'score'**: The numerical score out of 10, reflecting how well the answer uses the retrieved information.
-        - **'explanation'**: A detailed explanation of the score, describing the reasoning behind the evaluation and how well the answer adhered to the retrieved data."""
+        - **'explanation'**: A detailed explanation of the score, describing the reasoning behind the evaluation and how well the answer adhered to the retrieved data.
+        Without any other text."""
 
         def evaluate_single(c, a):
             try:
