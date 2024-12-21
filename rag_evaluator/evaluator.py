@@ -17,7 +17,8 @@ from tqdm import tqdm
 
 class RAGEvaluator:
 
-    def __init__(self, query_engine, google_api_key, eval_mode = "default", speed = 'normal', questions = None , ground_truth_df = None):
+    def __init__(self, query_engine, google_api_key, eval_mode = "default", speed = 'normal', 
+                 mode = 'rag', questions = None , ground_truth_df = None):
 
         self.query_engine = query_engine
         if eval_mode == "default":
@@ -39,7 +40,7 @@ class RAGEvaluator:
             self.retrieval_ground_truth = self.retrieval_ground_truth.head(10)
 
         print('Initializing the evaluator')
-        self.responses = [self.answer_question(question) for question in tqdm(self.questions)]
+        self.responses = [self.answer_question(question , mode) for question in tqdm(self.questions)]
         self.answers = [response.response for response in self.responses]
         self.contexts = [[node.node.get_text() for node in response.source_nodes] for response in self.responses]
         self.embedding_model = 'BAAI/bge-small-en-v1.5'
@@ -48,10 +49,14 @@ class RAGEvaluator:
         self.evaluation_model = genai.GenerativeModel("gemini-2.0-flash-exp")
         print('Initialization complete')
 
-    def answer_question(self, question: str):
+    def answer_question(self, question: str, mode = 'rag'):
         try:
-            result = self.query_engine.query(question)
+            if mode == 'rag' :
+                result = self.query_engine.query(question)
+            elif mode == 'agentic':
+                result = self.query_engine.chat(question)
             return result
+        
         except Exception as e:
             print(f"Error answering question: {e}")
             return None
