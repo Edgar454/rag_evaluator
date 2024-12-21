@@ -101,6 +101,7 @@ class RAGEvaluator:
         def evaluate_single(q, a):
             try:
                 result = self.generate_evaluation(correctness_prompt.format(question=q, answer=a))
+                print(result)
                 result_text = re.sub("```json|```", "", result)
                 result_dict = json.loads(result_text)
                 return result_dict['score']
